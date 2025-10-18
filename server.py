@@ -55,7 +55,7 @@ app.add_middleware(
 )
 
 
-def analyze_position(fen: str, depth: int = 18, multipv: int = 1, plies: int = 10):
+def analyze_position(fen: str, depth: int = 18, multipv: int = 1, plies: int = 5):
     with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
         root_board = chess.Board(fen)
 
@@ -336,7 +336,7 @@ def play_san_moves(fen: str, moves: str):
             move = board.parse_san(san)
             board.push(move)
             new_fen = board.fen()
-            analysis = analyze_position(new_fen, depth=18, multipv=1, plies=4)
+            analysis = analyze_position(new_fen, depth=18, multipv=1, plies=5)
             positions.append(
                 {
                     "move": san,
