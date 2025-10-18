@@ -1,0 +1,300 @@
+openapi: 3.1.1
+info:
+  title: Chess Analysis API
+  version: 1.0.3
+servers:
+  - url: https://e31b8a6c7875.ngrok-free.app
+paths:
+  /lichess/last_games:
+    get:
+      operationId: getLastGames
+      summary: Fetch a user's recent Lichess games
+      description: >
+        Fecth the most recent N games from lichess for a username 
+        Prompt the user to supply the username to fetch games
+      parameters:
+        - name: username
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: max
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: A list of recent Lichess games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      type: object
+  /lichess/critical_positions:
+    get:
+      operationId: getCriticalPositions
+      summary: Identify blunders and critical positions in a specific Lichess game
+      description: >
+        Analyze a Lichess game to find blunders and key moments for both players.
+        Returns top 5 per side, showing FENs, eval swings, and missed mates. 
+        Lower the threshold to include more positions.
+      parameters:
+        - name: gameID
+          in: query
+          required: true
+          description: Lichess game ID (e.g., "9ABVQPv7")
+          schema:
+            type: string
+        - name: threshold
+          in: query
+          required: false
+          description: Minimum evaluation swing in centipawns
+          schema:
+            type: number
+            default: 50
+        - name: top_n
+          in: query
+          required: false
+          description: Limit number of critical positions per color
+          schema:
+            type: integer
+            default: 5
+      responses:
+        "200":
+          description: Critical moments for both players with FENs and evaluations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  game_id:
+                    type: string
+                  white:
+                    type: array
+                    description: Critical positions where White made key mistakes or missed chances
+                    items:
+                      type: object
+                      properties:
+                        move_number:
+                          type: integer
+                        move:
+                          type: string
+                        fen:
+                          type: string
+                        eval:
+                          type: number
+                        prev_eval:
+                          type: number
+                        eval_delta:
+                          type: number
+                        mate_in:
+                          type: integer
+                          nullable: true
+                        judgment:
+                          type: string
+                          nullable: true
+                          enum: [Inaccuracy, Mistake, Blunder]
+                        comment:
+                          type: string
+                          nullable: true
+                        fen_image_url:
+                          type: string
+                          example: https://fen2png.com/api/render/abc123.png
+                  black:
+                    type: array
+                    description: Critical positions where Black made key mistakes or missed chances
+                    items:
+                      type: object
+                      properties:
+                        move_number:
+                          type: integer
+                        move:
+                          type: string
+                        fen:
+                          type: string
+                        eval:
+                          type: number
+                        prev_eval:
+                          type: number
+                        eval_delta:
+                          type: number
+                        mate_in:
+                          type: integer
+                          nullable: true
+                        judgment:
+                          type: string
+                          nullable: true
+                          enum: [Inaccuracy, Mistake, Blunder]
+                        comment:
+                          type: string
+                          nullable: true
+                        fen_image_url:
+                          type: string
+                          example: https://fen2png.com/api/render/xyz987.png
+  /render/fen:
+    get:
+      operationId: renderFEN
+      summary: Render a FEN board using the fen2png.com API and return the hosted PNG image URL
+      description: Always render the image inline in the chat. Always mention if it is white or black to move.
+      parameters:
+        - name: fen
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 400
+      responses:
+        "200":
+          description: Hosted PNG image URL of the rendered chess board
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fen:
+                    type: string
+                  fen_image_url:
+                    type: string
+                    example: https://fen2png.com/api/render/abc123.png
+                  perspective:
+                    type: string
+                    example: white
+  /stockfish/analyze:
+    get:
+      operationId: analyzePosition
+      summary: Translate stockfish analysis to human explainable feedback
+      description: >
+        When responding
+        1/ describe the position and which side is better
+        2/ explain why the user's move was not the best
+        3/ prompt the user to come up with alternative moves
+        4/ wait and explain the top lines from stockfish
+        Use piece activity, threats, king safety, pawn structure, etc. to explain
+      parameters:
+        - name: fen
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 18
+        - name: multipv
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 3
+      responses:
+        "200":
+          description: >
+            Stockfish evaluation data and principal variations.
+            Use this data to explain the position in simple human terms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fen:
+                    type: string
+                  fen_image_url:
+                    type: string
+                  analysis:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        depth:
+                          type: integer
+                        score_cp:
+                          type: number
+                          description: Centipawn evaluation from White's perspective
+                        pv_san:
+                          type: array
+                          items:
+                            type: string
+                          description: Principal variation in SAN (first move = best)
+                        multipv:
+                          type: integer
+  /chess/play_san:
+    get:
+      operationId: playSANMoves
+      summary: Play a sequence of SAN moves from a given FEN
+      description: >
+        Given a valid starting FEN and a space-separated list of legal SAN moves
+        (e.g., "e4 e5 Nf3 Nc6 Bb5"), this endpoint returns the FEN, stockfish analysis, and rendered
+        image URL after each move. Useful for generating visual move-by-move
+        explanations and replay sequences.
+      parameters:
+        - name: fen
+          in: query
+          required: true
+          description: The starting FEN string
+          schema:
+            type: string
+            example: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+        - name: moves
+          in: query
+          required: true
+          description: A space-separated list of legal SAN moves
+          schema:
+            type: string
+            example: e4 e5 Nf3 Nc6 Bb5
+      responses:
+        "200":
+          description: Sequence of resulting FENs and rendered boards after each move with analysis for each move
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  starting_fen:
+                    type: string
+                  starting_fen_image_url:
+                    type: string
+                    example: https://fen2png.com/api/render/start.png
+                  positions:
+                    type: array
+                    description: Resulting board states after each move
+                    items:
+                      type: object
+                      properties:
+                        move:
+                          type: string
+                          example: Bb5
+                        fen:
+                          type: string
+                          example: r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3
+                        fen_image_url:
+                          type: string
+                          example: https://fen2png.com/api/render/after_Bb5.png
+                        analysis:
+                          description: Stockfish analysis after this move
+                          type: object
+                          properties:
+                              depth:
+                                type: integer
+                              score_cp:
+                                type: number
+                                description: Centipawn evaluation from White's perspective
+                              pv_san:
+                                type: array
+                                items:
+                                  type: string
+                                description: Principal variation in SAN (first move = best)
+                              multipv:
+                                type: integer
