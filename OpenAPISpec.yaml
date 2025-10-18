@@ -3,7 +3,7 @@ info:
   title: Chess Analysis API
   version: 1.0.3
 servers:
-  - url: https://e31b8a6c7875.ngrok-free.app
+  - url: https://e3d55d5d15cc.ngrok-free.app
 paths:
   /lichess/last_games:
     get:
@@ -85,12 +85,15 @@ paths:
                           type: integer
                         move:
                           type: string
+                          description: The SAN notation chess move played in the position
                         fen:
                           type: string
+                        eval_after_move:
+                          type: number
+                          description: Centipawn eval after the Move
                         eval:
                           type: number
-                        prev_eval:
-                          type: number
+                          description: Centipawn eval before the Move
                         eval_delta:
                           type: number
                         mate_in:
@@ -106,6 +109,14 @@ paths:
                         fen_image_url:
                           type: string
                           example: https://fen2png.com/api/render/abc123.png
+                        post_move_fen:
+                          type: string
+                          example: r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3
+                          description: FEN after playing the move
+                        post_move_fen_image_url:
+                          type: string
+                          example: https://fen2png.com/api/render/after_Bb5.png
+                          description: FEN image URL after playing the move
                   black:
                     type: array
                     description: Critical positions where Black made key mistakes or missed chances
@@ -116,12 +127,15 @@ paths:
                           type: integer
                         move:
                           type: string
+                          description: The SAN notation chess move played in the position
                         fen:
                           type: string
+                        eval_after_move:
+                          type: number
+                          description: Centipawn eval after the Move
                         eval:
                           type: number
-                        prev_eval:
-                          type: number
+                          description: Centipawn eval before the Move
                         eval_delta:
                           type: number
                         mate_in:
@@ -136,7 +150,15 @@ paths:
                           nullable: true
                         fen_image_url:
                           type: string
-                          example: https://fen2png.com/api/render/xyz987.png
+                          example: https://fen2png.com/api/render/abc123.png
+                        post_move_fen:
+                          type: string
+                          example: r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3
+                          description: FEN after playing the move
+                        post_move_fen_image_url:
+                          type: string
+                          example: https://fen2png.com/api/render/after_Bb5.png
+                          description: FEN image URL after playing the move
   /render/fen:
     get:
       operationId: renderFEN
@@ -148,12 +170,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: size
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 400
       responses:
         "200":
           description: Hosted PNG image URL of the rendered chess board
@@ -167,9 +183,6 @@ paths:
                   fen_image_url:
                     type: string
                     example: https://fen2png.com/api/render/abc123.png
-                  perspective:
-                    type: string
-                    example: white
   /stockfish/analyze:
     get:
       operationId: analyzePosition
@@ -264,9 +277,6 @@ paths:
                 properties:
                   starting_fen:
                     type: string
-                  starting_fen_image_url:
-                    type: string
-                    example: https://fen2png.com/api/render/start.png
                   positions:
                     type: array
                     description: Resulting board states after each move
@@ -279,9 +289,19 @@ paths:
                         fen:
                           type: string
                           example: r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3
+                          description: FEN of the position before the move is played
                         fen_image_url:
                           type: string
                           example: https://fen2png.com/api/render/after_Bb5.png
+                          description: FEN image URL of the position before the move is played
+                        post_move_fen:
+                          type: string
+                          example: r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 3 3
+                          description: FEN after playing the move
+                        post_move_fen_image_url:
+                          type: string
+                          example: https://fen2png.com/api/render/after_Bb5.png
+                          description: FEN image URL after playing the move
                         analysis:
                           description: Stockfish analysis after this move
                           type: object

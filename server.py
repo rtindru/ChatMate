@@ -34,7 +34,7 @@ except ImportError:
 
 # Environment variables
 LICHESS_TOKEN = os.environ.get("LICHESS_TOKEN")
-STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "stockfish")
+STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH", "./stockfish")
 STATIC_PATH = os.environ.get("STAIC_PATH", "static")
 FEN2PNG_BASE = "https://fen2png.com/api/"
 
@@ -205,6 +205,7 @@ def extract_critical_positions_from_lichess_analysis(
         except Exception:
             continue
         board.push(move)
+        new_fen = board.fen()
 
         delta = abs(cur_eval - prev_eval)
         judgment = (item.get("judgment") or {}).get("name", "")
@@ -217,13 +218,15 @@ def extract_critical_positions_from_lichess_analysis(
                 "move_number": board.fullmove_number,  # after pushing move
                 "move": san,
                 "fen": prev_fen,  # position *before* the move
-                "eval": round(cur_eval, 2),
-                "prev_eval": round(prev_eval, 2),
+                "eval_after_move": round(cur_eval, 2),
+                "eval": round(prev_eval, 2),
                 "eval_delta": round(delta, 2),
                 "mate_in": mate_in,  # e.g., 2, -1, or None
                 "judgment": judgment or None,
                 "comment": (item.get("judgment") or {}).get("comment"),
                 "fen_image_url": get_fen_url(prev_fen),
+                "post_move_fen": new_fen,
+                "post_move_fen_image_url": get_fen_url(new_fen),
             }
 
             if is_white_move:
@@ -287,20 +290,6 @@ def evaluate_position(fen: str, depth: int = 18, multipv: int = 3):
     }
 
 
-@app.get("/chat/analyze_position")
-def chat_analyze(fen: str, question: str):
-    """
-    GPT integration goes here.
-    You can send `req.fen` and `req.question` to your GPT (or Custom GPT)
-    which will return natural language analysis.
-    """
-    # For now, return stub
-    return {
-        "fen": fen,
-        "answer": f"GPT would answer the question: '{question}' here.",
-    }
-
-
 def get_fen_url(fen: str):
     # Build the external API request
     encoded_fen = maybe_encode_fen(fen)
@@ -328,35 +317,7 @@ def render_fen(fen: str, perspective: str = "white", size: int = 400):
     Render a chess position locally (300px width PNG, compressed for speed).
     Optionally fix the board perspective for 'white' or 'black'.
     """
-    try:
-        # Store locally under /tmp (or serve from a static route)
-        filename = f"fen_{hash(fen + 'bc' + perspective + str(size))}.png"
-        filepath = os.path.join(STATIC_PATH, filename)
-        # Validate side perspective
-        if perspective not in ("white", "black"):
-            raise HTTPException(
-                status_code=400, detail="perspective must be 'white' or 'black'"
-            )
-        if not os.path.exists(filepath):
-            board = chess.Board(fen)
-            svg_data = chess.svg.board(
-                board,
-                orientation=chess.WHITE if perspective == "white" else chess.BLACK,
-            )
-            png_data = cairosvg.svg2png(
-                bytestring=svg_data.encode("utf-8"), output_width=size
-            )
-            with open(filepath, "wb") as f:
-                f.write(png_data)
-
-        # Return local reference path (can be adjusted to your static URL base)
-        return {
-            "fen": fen,
-            "perspective": perspective,
-            "fen_image_url": f"/static/{filename}",
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error rendering FEN: {e}")
+    return {"fen": fen, "fen_image_url": render_fen(fen)}
 
 
 @app.get("/chess/play_san")
@@ -381,6 +342,8 @@ def play_san_moves(fen: str, moves: str):
                     "move": san,
                     "fen": old_fen,
                     "fen_image_url": get_fen_url(old_fen),
+                    "post_move_fen": new_fen,
+                    "post_move_fen_image_url": get_fen_url(new_fen),
                     "analysis": analysis,
                 }
             )
@@ -391,6 +354,5 @@ def play_san_moves(fen: str, moves: str):
 
     return {
         "starting_fen": fen,
-        "starting_fen_image_url": get_fen_url(fen),
         "positions": positions,
     }
